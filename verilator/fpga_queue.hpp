@@ -71,6 +71,7 @@ public:
 static inline uint16_t change_endianess(uint16_t value) {
 	return (value >> 8) | ((value & 0xff) << 8);
 }
+
 static inline uint32_t change_endianess(uint32_t value) {
 	return ((value & 0xff000000) >> 24) |
 	       ((value & 0x00ff0000) >>  8) |
