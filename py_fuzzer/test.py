@@ -71,6 +71,8 @@ class TestDataGenerate:
         random_bytes = secrets.token_bytes(size)
         # Return the generated random data
         return random_bytes
+        # data = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".encode('ascii')
+        # return data[:size]
 
 class Test:
     '''

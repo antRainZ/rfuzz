@@ -182,6 +182,11 @@ bool FPGAQueueFuzzer::pop(uint8_t* input, size_t len) {
 	assert(len == this->input_size);
 	if(inputs_left > 0) {
 		read_from_test(input, len);
+		std::cout<<len<<" ";
+		for(int i=0;i<len;++i) {
+			std::cout<<std::hex<<int(input[i])<<" ";
+		}
+		std::cout<<std::endl;
 		inputs_left -= 1;
 		return true;
 	} else {
