@@ -2,6 +2,7 @@ import os
 import sysv_ipc
 import struct
 import secrets
+import time
 
 
 class NamedPipe:
@@ -21,14 +22,17 @@ class NamedPipe:
         self.rx_fifo.close()
     
     def push(self,test_in_id,coverage_out_id):
-        print("test_in_id:",test_in_id,"coverage_out_id",coverage_out_id)
+        # print("test_in_id:",test_in_id,"coverage_out_id",coverage_out_id)
         data = struct.pack('II', test_in_id, coverage_out_id)
-        print("pipe push:",data)
+        # print("pipe push:",data)
         self.rx_fifo.write(data)
+        # verilator/fpga_queue.cpp#L59 写完之后要刷新,不然会卡住
+        self.rx_fifo.flush()
 
     def pop(self):
         data = self.tx_fifo.read(8)
         integers = struct.unpack('II', data)
+        print(integers)
         return integers
 
 class SharedMemory:
@@ -42,13 +46,20 @@ class SharedMemory:
         self.len += len(data)
 
     def read(self,byte_count):
-        data = self.memory.read(byte_count)
-        return data.decode()
+        data = self.memory.read(byte_count,self.len)
+        self.len += byte_count
+        return data
     
     def get_id(self):
         return self.memory.id
     
+    def destory(self):
+        self.memory.remove()
+    
 class TestDataGenerate:
+    '''
+    产生测试数据
+    '''
     def __init__(self) -> None:
         pass
 
@@ -62,18 +73,23 @@ class TestDataGenerate:
         return random_bytes
 
 class Test:
+    '''
+    每次测试
+    '''
+
     MagicTestInputHeader= 0x19931993
     MagicCoverageOutputHeader = 0x73537353
     # fuzzer/src/main.rs#L127
     test_buffer_size = 64 * 1024 * 16
     coverage_buffer_size = 64 * 1024 * 16
 
-    def __init__(self,tests_left=1,buffer_id=0,input_size=16) -> None:
+    def __init__(self,tests_left=1,buffer_id=0,input_size=16,coverage_size=6) -> None:
         self.test_in_ptr=SharedMemory(Test.test_buffer_size)
         self.coverage_out_ptr=SharedMemory(Test.coverage_buffer_size)
         self.input_size=input_size
         self.buffer_id=buffer_id
         self.tests_left=tests_left
+        self.coverage_size=coverage_size
         self.pipe = NamedPipe()
         pass
     
@@ -110,7 +126,42 @@ class Test:
                 data = gen.get_test_data(self.input_size)
                 self.write_test_data(data)
         self.pipe.push(self.test_in_ptr.get_id(),self.coverage_out_ptr.get_id())
+    
+    def parse_header(self):
+        '''
+        协议内容:
+        MagicCoverageOutputHeader: 32位
+        buffer_id: 32位
+        # 然后下面有tests_left组:
+        cycles: 16位
+        coverage结果: CoverageSize
+        '''
+        data = self.coverage_out_ptr.read(8)
+        # https://github.com/ekiwi/rfuzz/blob/main/verilator/fpga_queue.cpp#L141, L151
+        (magic,buffer_id) = struct.unpack(">II",data)
+        # print(magic,buffer_id)
+        assert(magic == Test.MagicCoverageOutputHeader)
+
+    def result_analyse(self):
+        '''
+        分析测试结果
+        '''
+        data = self.pipe.pop()
+        self.parse_header()
+        for i in range(self.tests_left):
+            data = self.coverage_out_ptr.read(2)
+            cycles = struct.unpack(">H",data)
+            data = self.coverage_out_ptr.read(self.coverage_size)
+            print(cycles,data)
+            
+
+    def release_memory(self):
+        self.coverage_out_ptr.destory()
+        self.test_in_ptr.destory()
 
 gen = TestDataGenerate()
-test = Test()
-test.start_test(gen)
+for i in range(1):
+    test = Test()
+    test.start_test(gen)
+    test.result_analyse()
+    test.release_memory()

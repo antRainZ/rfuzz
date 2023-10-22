@@ -130,7 +130,7 @@ void FPGAQueueFuzzer::parse_header() {
 	change_endianess(read_from_test<uint16_t>());
 	change_endianess(read_from_test<uint16_t>());
 	change_endianess(read_from_test<uint16_t>());
-	// std::cout << "received " << tests_left << " new tests" << std::endl;
+	std::cout << "received " << tests_left << " new tests" << std::endl;
 	const auto CoverageSize = 8 + 8 + (coverage_size + 2) * tests_left;
 	const bool enough_space_for_coverage_provided =
 		get_size_of_shm(coverage_out_id) >= CoverageSize;
@@ -152,7 +152,7 @@ void FPGAQueueFuzzer::start_test() {
 	inputs_left = change_endianess(read_from_test<uint64_t>());
 	tests_left -= 1;
 	const auto cycles = static_cast<uint16_t>(inputs_left);
-	//std::cout << "cycles: " << cycles << "" << std::endl;
+	std::cout << "cycles: " << cycles << "" << std::endl;
 	write_to_coverage(change_endianess(cycles));
 }
 
