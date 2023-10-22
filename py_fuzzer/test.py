@@ -83,14 +83,14 @@ class Test:
     test_buffer_size = 64 * 1024 * 16
     coverage_buffer_size = 64 * 1024 * 16
 
-    def __init__(self,tests_left=1,buffer_id=0,input_size=16,coverage_size=6) -> None:
+    def __init__(self,pipe: NamedPipe,tests_left=1,buffer_id=0,input_size=16,coverage_size=6) -> None:
         self.test_in_ptr=SharedMemory(Test.test_buffer_size)
         self.coverage_out_ptr=SharedMemory(Test.coverage_buffer_size)
         self.input_size=input_size
         self.buffer_id=buffer_id
         self.tests_left=tests_left
         self.coverage_size=coverage_size
-        self.pipe = NamedPipe()
+        self.pipe = pipe
         pass
     
     def write_header(self):
@@ -160,8 +160,10 @@ class Test:
         self.test_in_ptr.destory()
 
 gen = TestDataGenerate()
-for i in range(1):
-    test = Test()
+pipe = NamedPipe()
+for i in range(2):
+    test = Test(pipe)
     test.start_test(gen)
     test.result_analyse()
     test.release_memory()
+pipe.destory()
