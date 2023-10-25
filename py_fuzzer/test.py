@@ -55,7 +55,34 @@ class SharedMemory:
     
     def destory(self):
         self.memory.remove()
+
+    def reset(self):
+        self.len = 0
+
+class MemoryCache:
+    cache = {}
+
+    def __init__(self) -> None:
+        raise "not support"
     
+    @staticmethod
+    def get_memory(key,size):
+        memory = None
+        if key in MemoryCache.cache:
+            memory = MemoryCache.cache[key]
+            memory.reset()
+        else:
+            memory = SharedMemory(size)
+            MemoryCache.cache[key] = memory
+        return memory
+
+    @staticmethod
+    def destory():
+        for item in	MemoryCache.cache.values():
+            item.destory()
+
+
+
 class TestDataGenerate:
     '''
     产生测试数据
@@ -86,8 +113,8 @@ class Test:
     coverage_buffer_size = 64 * 1024 * 16
 
     def __init__(self,pipe: NamedPipe,tests_left=1,buffer_id=0,input_size=16,coverage_size=6) -> None:
-        self.test_in_ptr=SharedMemory(Test.test_buffer_size)
-        self.coverage_out_ptr=SharedMemory(Test.coverage_buffer_size)
+        self.test_in_ptr = MemoryCache.get_memory("test_in_ptr", Test.test_buffer_size)
+        self.coverage_out_ptr= MemoryCache.get_memory("coverage_out_ptr",Test.coverage_buffer_size)
         self.input_size=input_size
         self.buffer_id=buffer_id
         self.tests_left=tests_left
@@ -158,14 +185,25 @@ class Test:
             
 
     def release_memory(self):
-        self.coverage_out_ptr.destory()
-        self.test_in_ptr.destory()
+        pass
+        # self.coverage_out_ptr.destory()
+        # self.test_in_ptr.destory()
 
-gen = TestDataGenerate()
-pipe = NamedPipe()
-for i in range(2):
-    test = Test(pipe)
-    test.start_test(gen)
-    test.result_analyse()
-    test.release_memory()
-pipe.destory()
+class FuzzerTest:
+
+    def __init__(self,):
+        self.pipe = NamedPipe()
+
+    def start(self,count,gen:TestDataGenerate):
+        for i in range(count):
+            print("iteration: ",i)
+            test = Test(self.pipe)
+            test.start_test(gen)
+            test.result_analyse()
+    
+    def destory(self):
+        self.pipe.destory()
+        MemoryCache.destory()
+
+test = FuzzerTest()
+test.start(10000,TestDataGenerate())
